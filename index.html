@@ -309,10 +309,11 @@ for(let i=0;i<anchorCount;i++){
     });
   }
 
-  exitNode={
+   exitNode={
     x:Math.random()*canvas.width,
     y:Math.random()*canvas.height,
-    r:18
+    r:18,
+    red:false
   };
 }
 generateLevel();
@@ -381,27 +382,7 @@ bgObj.angle += 0.002;
 
   /* Anchors → stability */
   let nearAnchor = false;
-  // ===== GLITCH SQUARE DRAW =====
-glitchSquares.forEach(g=>{
-  ctx.save();
-  ctx.translate(g.x, g.y);
-
-  const jitter = (Math.random()-0.5)*8;
-  ctx.rotate(jitter*0.01);
-
-  ctx.fillStyle = `rgba(255,0,0,${0.3 + Math.random()*0.4})`;
-  ctx.shadowColor = "#ff0000";
-  ctx.shadowBlur = 20;
-
-  ctx.fillRect(
-    -g.size/2 + jitter,
-    -g.size/2,
-    g.size,
-    g.size
-  );
-
-  ctx.restore();
-});
+  
 
   anchors.forEach(a=>{
     const d = Math.hypot(player.x-a.x,player.y-a.y);
@@ -471,8 +452,33 @@ glitchSquares.forEach((g,i)=>{
   g.life += dt;
 
   const d = Math.hypot(player.x-g.x, player.y-g.y);
-  if(d < g.size && !g.triggered){
-    g.triggered = true;
+if(d < g.size && !g.triggered){
+  g.triggered = true;
+
+  // TELEPORT PLAYER
+  if(Math.random() < 0.4){
+    player.x = Math.random()*canvas.width;
+    player.y = Math.random()*canvas.height;
+    flash = 1;
+  }
+
+  // TEMP CONTROL CORRUPTION
+  if(Math.random() < 0.3){
+    player.vx += (Math.random()-0.5)*20;
+    player.vy += (Math.random()-0.5)*20;
+  }
+
+  // SPAWN ENEMY
+  if(Math.random() < 0.3){
+    enemies.push({
+      x:g.x,
+      y:g.y,
+      r:10,
+      vx:(Math.random()-0.5)*2,
+      vy:(Math.random()-0.5)*2
+    });
+  }
+
 
     // Restabilization reward chance
     if(stability > 60){
@@ -585,6 +591,29 @@ if (bgImg.complete) {
     ctx.shadowBlur=0;
   });
 
+  // ===== GLITCH SQUARE DRAW =====
+glitchSquares.forEach(g=>{
+  ctx.save();
+  ctx.translate(g.x, g.y);
+
+  const jitterX = (Math.random()-0.5)*10;
+  const jitterY = (Math.random()-0.5)*10;
+
+  ctx.fillStyle = `rgba(255,50,50,${0.25 + Math.random()*0.4})`;
+  ctx.shadowColor = "#ff2222";
+  ctx.shadowBlur = 25;
+
+  ctx.fillRect(
+    -g.size/2 + jitterX,
+    -g.size/2 + jitterY,
+    g.size,
+    g.size
+  );
+
+  ctx.restore();
+});
+
+
   relays.forEach(r=>{
     r.p+=0.05;
     ctx.fillStyle=r.active?"#5bb450":"#4E9FE5";
@@ -621,15 +650,33 @@ ctx.shadowColor = exitNode.red ? "#ff0000" : "#ffd700";
     ctx.fill();
   });
 
-  if(relays.every(r=>r.active)){
-    ctx.strokeStyle="#ffd700";
-    ctx.shadowColor="#ffd700";
-    ctx.shadowBlur=20;
-    ctx.beginPath();
-    ctx.arc(exitNode.x,exitNode.y,exitNode.r,0,6.28);
-    ctx.stroke();
-    ctx.shadowBlur=0;
+if(relays.every(r=>r.active)){
+
+  if(exitNode.red){
+    // 🔴 GLITCH EXIT (RED)
+    ctx.strokeStyle = "#ff0000";
+    ctx.shadowColor = "#ff0000";
+    ctx.shadowBlur = 30;
+  } else {
+    // 🟦🟩 NORMAL EXIT (BLUE → GREEN GRADIENT)
+    const grad = ctx.createRadialGradient(
+      exitNode.x, exitNode.y, exitNode.r * 0.2,
+      exitNode.x, exitNode.y, exitNode.r
+    );
+    grad.addColorStop(0, "#00ffd5"); // cyan center
+    grad.addColorStop(1, "#00ff6a"); // green edge
+
+    ctx.strokeStyle = grad;
+    ctx.shadowColor = "#00ffb0";
+    ctx.shadowBlur = 25;
   }
+
+  ctx.beginPath();
+  ctx.arc(exitNode.x, exitNode.y, exitNode.r, 0, 6.28);
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+}
 
  // Arrow player
 let ax=0, ay=0;
