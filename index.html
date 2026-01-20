@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DEAD CHANNEL</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+html,body{
+  margin:0;
+  padding:0;
+  background:#04060b;
+  overflow:hidden;
+  font-family:monospace;
+}
+canvas{display:block}
+
+/* HUD */
+#hud{
+  position:fixed;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%);
+  color:#7fffd4;
+  font-size:12px;
+  letter-spacing:2px;
+  opacity:0.9;
+  pointer-events:none;
+}
+#status{
+  position:fixed;
+  top:20px;
+  left:50%;
+  transform:translateX(-50%);
+  color:#fffc;
+  opacity:0.8;
+  font-size:14px;
+}
+
+/* TITLE */
+#title{
+  position:fixed;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  color:#7fffd4;
+  background:#04060b;
+  z-index:1000;
+}
+#title h1{
+  font-size:72px;
+  margin:0;
+  letter-spacing:8px;
+}
+#title p{
+  opacity:0.7;
+  margin-top:10px;
+}
+/* CRT / VHS Overlay Effects */
+#crtOverlay, #noiseOverlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2000;
+}
+
+#crtOverlay {
+  background:
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 2px) repeat-y,
+    radial-gradient(circle at center, rgba(255,255,255,0.03), transparent 70%);
+  mix-blend-mode: overlay;
+  transform: scale(1.02,1.02);
+  border-radius: 4%;
+}
+
+#noiseOverlay {
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(255,255,255,0.02),
+    rgba(255,255,255,0.02) 1px,
+    transparent 2px
+  );
+  mix-blend-mode: lighten;
+}
+
+</style>
+</head>
+<body>
+
+<div id="title">
+  <h1 id="titleText">DEAD CHANNEL</h1>
+  <p>PRESS ANY KEY</p>
+</div>
+
+
+<div id="status">STATUS: STABLE</div>
+<div id="hud">SIGNAL ▓▓▓▓▓▓▓▓▓▓</div>
+<canvas id="c"></canvas>
+<div id="crtOverlay"></div>
+<div id="noiseOverlay"></div>
+
+
+<script>
+/* ================= SETUP ================= */
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const hud = document.getElementById("hud");
+const status = document.getElementById("status");
+const title = document.getElementById("title");
+
+function resize(){
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+}
+resize();
+addEventListener("resize", resize);
+
+/* ================= INPUT ================= */
+const keys = {};
+let started = false;
+
+window.addEventListener("keydown", e=>{
+  keys[e.key] = true;
+  if(!started){
+    started = true;
+    title.style.display = "none";
+  }
+});
+window.addEventListener("keyup", e=>keys[e.key]=false);
+
+/* ================= STATE ================= */
+let level = 1;
+let score = 0;
+let signal = 1;
+let shake = 0;
+let flash = 0;
+let levelTime = 120; // seconds per level
+
+
+let stability = 100;           // 0–100
+let stabilityTimer = 0;
+let relayTimer = 0;
+
+/* ================= PLAYER ================= */
+const player = {
+  x:0,y:0,r:10,
+  vx:0,vy:0,
+  speed:0.15,
+  dash:0
+};
+
+/* ================= ENTITIES ================= */
+let relays=[], zones=[], anchors=[], boosts=[], enemies=[], exitNode=null;
+
+/* ===== HOME SCREEN ANIMATION ===== */
+const homeAnchors = [];
+for(let i=0;i<10;i++){ // floating background anchors
+  homeAnchors.push({
+    x: Math.random()*canvas.width,
+    y: Math.random()*canvas.height,
+    r: 8 + Math.random()*8,
+    pulse: Math.random()*6
+  });
+}
+
+function drawHomeScreen(){
+  ctx.fillStyle="#04060b";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // floating anchors
+  homeAnchors.forEach(a=>{
+    a.pulse += 1;
+    ctx.strokeStyle="#7fffd4";
+    ctx.shadowColor="#7fffd4";
+    ctx.shadowBlur = 10 + Math.sin(a.pulse)*4;
+    ctx.beginPath();
+    ctx.arc(a.x,a.y,a.r+Math.sin(a.pulse)*2,0,6.28);
+    ctx.stroke();
+    ctx.shadowBlur=0;
+  });
+
+  // pulsing title
+  const titleText = document.getElementById("titleText");
+  const scale = 1 + Math.sin(performance.now()*0.0025)*0.05;
+  titleText.style.transform = `scale(${scale})`;
+}
+
+/* ================= LEVEL GEN ================= */
+function generateLevel(){
+  relays=[]; zones=[]; anchors=[]; boosts=[]; enemies=[];
+  signal = 1;
+  stability = 100;
+  flash = 0;
+  levelTime = 120;
+
+
+  player.x = canvas.width/2;
+  player.y = canvas.height/2;
+  player.vx = player.vy = 0;
+
+  // ----- RELAY CLUSTERING (easy early, scattered later) -----
+const relaySpread = Math.min(600, 120 + level * 80);
+const relayCenterX = canvas.width / 2;
+const relayCenterY = canvas.height / 2;
+
+for(let i=0;i<level+2;i++){
+  relays.push({
+    x: relayCenterX + (Math.random()-0.5)*relaySpread,
+    y: relayCenterY + (Math.random()-0.5)*relaySpread,
+    r:14,
+    active:false,
+    decay:1,
+    p:Math.random()*6
+  });
+}
+
+
+  for(let i=0;i<level+1;i++){
+    zones.push({
+      x:Math.random()*canvas.width,
+      y:Math.random()*canvas.height,
+      r:50+Math.random()*30,
+      drift:Math.random()*6
+    });
+  }
+
+// ----- ANCHOR SCALING -----
+const anchorCount = Math.max(1, 4 - Math.floor(level/3));
+const anchorSpread = Math.min(500, 100 + level * 100);
+
+for(let i=0;i<anchorCount;i++){
+  anchors.push({
+    x: canvas.width/2 + (Math.random()-0.5)*anchorSpread,
+    y: canvas.height/2 + (Math.random()-0.5)*anchorSpread,
+    r:18,
+    pulse:Math.random()*6
+  });
+}
+
+
+  for(let i=0;i<Math.floor(level/2);i++){
+    boosts.push({
+      x:Math.random()*canvas.width,
+      y:Math.random()*canvas.height,
+      r:8,
+      type:Math.random()<0.5?"dash":"signal"
+    });
+  }
+
+  for(let i=0;i<level;i++){
+    enemies.push({
+      x:Math.random()*canvas.width,
+      y:Math.random()*canvas.height,
+      r:8,
+      vx:Math.random()*1.2-0.6,
+      vy:Math.random()*1.2-0.6
+    });
+  }
+
+  exitNode={
+    x:Math.random()*canvas.width,
+    y:Math.random()*canvas.height,
+    r:18
+  };
+}
+generateLevel();
+
+/* ================= UPDATE ================= */
+function update(dt){
+  if(!started) return;
+  
+  levelTime -= dt;
+if(levelTime <= 0){
+  flash = 1;
+  generateLevel();
+  return;
+}
+
+
+  let ax=0, ay=0;
+  if(keys.w||keys.ArrowUp) ay--;
+  if(keys.s||keys.ArrowDown) ay++;
+  if(keys.a||keys.ArrowLeft) ax--;
+  if(keys.d||keys.ArrowRight) ax++;
+
+  if((keys[" "]||keys.Shift) && player.dash<=0){
+    player.vx += ax*8;
+    player.vy += ay*8;
+    player.dash = 60;
+  }
+
+  player.vx += ax*player.speed;
+  player.vy += ay*player.speed;
+  player.vx *= 0.92;
+  player.vy *= 0.92;
+
+  player.x += player.vx;
+  player.y += player.vy;
+  player.dash--;
+
+  /* Clamp to screen */
+  player.x = Math.max(player.r, Math.min(canvas.width-player.r, player.x));
+  player.y = Math.max(player.r, Math.min(canvas.height-player.r, player.y));
+
+  /* Zones */
+  let danger = 0;
+  zones.forEach(z=>{
+    z.drift += 0.01;
+    if(Math.hypot(player.x-z.x,player.y-z.y) < z.r + Math.sin(z.drift)*10){
+      signal -= 0.004;
+      danger++;
+      flash = 1;
+    }
+  });
+
+  /* Anchors → stability */
+  let nearAnchor = false;
+  anchors.forEach(a=>{
+    const d = Math.hypot(player.x-a.x,player.y-a.y);
+    if(d > a.r+player.r && d < 120) nearAnchor = true;
+  });
+
+  stabilityTimer += dt;
+  if(stabilityTimer >= 0.2){
+    stability += nearAnchor ? 1 : -1;
+    stability = Math.max(0,Math.min(100,stability));
+    stabilityTimer = 0;
+  }
+
+  /* Relays */
+  relays.forEach(r=>{
+    const d = Math.hypot(player.x-r.x,player.y-r.y);
+    if(d < r.r+player.r){
+      r.active = true;
+      r.decay = 1;
+    }
+  });
+
+  relayTimer += dt;
+  if(relayTimer >= 1){
+    relays.forEach(r=>{
+      if(r.active && Math.random()*100 > stability){
+        r.active = false;
+        r.decay = 0.2;
+      }
+    });
+    relayTimer = 0;
+  }
+
+  /* Boosts */
+  boosts.forEach((b,i)=>{
+    if(Math.hypot(player.x-b.x,player.y-b.y)<b.r+player.r){
+      if(b.type==="dash") player.dash=60;
+      if(b.type==="signal") signal=Math.min(1,signal+0.3);
+      boosts.splice(i,1);
+    }
+  });
+
+  /* Enemies */
+  enemies.forEach(e=>{
+    e.x+=e.vx; e.y+=e.vy;
+    if(Math.hypot(player.x-e.x,player.y-e.y)<e.r+player.r) signal-=0.05;
+    if(e.x<0||e.x>canvas.width) e.vx*=-1;
+    if(e.y<0||e.y>canvas.height) e.vy*=-1;
+  });
+
+  if(danger===0) signal+=0.0015;
+  signal=Math.max(0,Math.min(1,signal));
+
+  if(signal<=0){flash=1;generateLevel();}
+
+  if(relays.every(r=>r.active) &&
+     Math.hypot(player.x-exitNode.x,player.y-exitNode.y)<exitNode.r+player.r){
+    score+=level*100;
+    level++;
+    generateLevel();
+  }
+
+  shake = danger*3 + (100-stability)*0.03;
+
+  status.textContent =
+    stability>70?"STATUS: STABLE":
+    stability>40?"STATUS: UNSTABLE":"STATUS: CRITICAL";
+
+  const minutes = Math.floor(levelTime / 60);
+const seconds = Math.floor(levelTime % 60).toString().padStart(2,"0");
+
+hud.textContent =
+  `SIGNAL ${"▓".repeat(signal*10|0)}${"░".repeat(10-(signal*10|0))} | STAB ${stability}% | TIME ${minutes}:${seconds} | LVL ${level} | SCORE ${score}`;
+
+}
+
+/* ================= DRAW ================= */
+function draw(){
+  ctx.save();
+  ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
+  ctx.fillStyle="#04060b";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  zones.forEach(z=>{
+    ctx.strokeStyle="rgba(138,43,226,0.35)";
+    ctx.shadowColor="#8a2be2";
+    ctx.shadowBlur=20;
+    ctx.beginPath();
+    ctx.arc(z.x,z.y,z.r+Math.sin(z.drift)*10,0,6.28);
+    ctx.stroke();
+    ctx.shadowBlur=0;
+  });
+
+  relays.forEach(r=>{
+    r.p+=0.05;
+    ctx.fillStyle=r.active?"#5bb450":"#4E9FE5";
+    ctx.shadowColor=ctx.fillStyle;
+    ctx.shadowBlur=15*r.decay;
+    ctx.beginPath();
+    ctx.arc(r.x,r.y,r.r+Math.sin(r.p)*2,0,6.28);
+    ctx.fill();
+    ctx.shadowBlur=0;
+  });
+
+  anchors.forEach(a=>{
+    a.pulse+=0.05;
+    ctx.strokeStyle="#ffd700";
+    ctx.shadowColor="#ffd700";
+    ctx.shadowBlur=12;
+    ctx.beginPath();
+    ctx.arc(a.x,a.y,a.r+Math.sin(a.pulse)*3,0,6.28);
+    ctx.stroke();
+    ctx.shadowBlur=0;
+  });
+
+  boosts.forEach(b=>{
+    ctx.fillStyle=b.type==="dash"?"#fffc00":"#00fffc";
+    ctx.beginPath();
+    ctx.arc(b.x,b.y,b.r,0,6.28);
+    ctx.fill();
+  });
+
+  enemies.forEach(e=>{
+    ctx.fillStyle="#ff00ff";
+    ctx.beginPath();
+    ctx.arc(e.x,e.y,e.r,0,6.28);
+    ctx.fill();
+  });
+
+  if(relays.every(r=>r.active)){
+    ctx.strokeStyle="#ffd700";
+    ctx.shadowColor="#ffd700";
+    ctx.shadowBlur=20;
+    ctx.beginPath();
+    ctx.arc(exitNode.x,exitNode.y,exitNode.r,0,6.28);
+    ctx.stroke();
+    ctx.shadowBlur=0;
+  }
+
+  ctx.fillStyle="#7fffd4";
+  ctx.shadowColor="#7fffd4";
+  ctx.shadowBlur=12;
+  ctx.beginPath();
+  ctx.arc(player.x,player.y,player.r,0,6.28);
+  ctx.fill();
+  ctx.shadowBlur=0;
+
+  ctx.restore();
+
+  ctx.fillStyle="rgba(255,255,255,0.03)";
+  for(let y=0;y<canvas.height;y+=4) ctx.fillRect(0,y,canvas.width,1);
+
+  const shift=Math.sin(performance.now()*0.004)*3;
+  ctx.globalCompositeOperation="screen";
+  ctx.drawImage(canvas,shift,0);
+  ctx.drawImage(canvas,-shift,0);
+  ctx.globalCompositeOperation="source-over";
+
+  if(flash>0){
+    ctx.fillStyle=`rgba(127,255,212,${flash*0.4})`;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    flash*=0.9;
+  }
+}
+
+/* ================= LOOP ================= */
+let last=performance.now();
+(function loop(t){
+  const dt=(t-last)/1000;
+  last=t;
+  
+  if(!started){
+    drawHomeScreen();
+  } else {
+    update(dt);
+    draw();
+  }
+  
+  // CRT flicker overlay
+  const crt = document.getElementById("crtOverlay");
+  const noise = document.getElementById("noiseOverlay");
+  crt.style.opacity = (0.1 + Math.random() * 0.05).toFixed(2);
+  noise.style.opacity = (0.05 + Math.random() * 0.05).toFixed(2);
+  
+  requestAnimationFrame(loop);
+})();
+
+</script>
+</body>
+</html>
