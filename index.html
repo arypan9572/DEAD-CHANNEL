@@ -171,6 +171,12 @@ let levelTime = 120; // seconds per level
 let paused = false;
 let pauseAlpha = 0;  // fade effect for pause screen
 
+ let lives = 3;
+const MAX_LIVES = 3;
+
+let dead = false;
+let deathStartTime = 0;
+ 
 let stability = 100;           // 0–100
 let stabilityTimer = 0;
 let relayTimer = 0;
@@ -394,15 +400,16 @@ bgObj.angle += 0.002;
     stability += nearAnchor ? 1 : -1;
     stability = Math.max(0,Math.min(100,stability));
     // ===== GLITCH SQUARE SPAWN (instability buff) =====
-if(stability < 40 && Math.random() < 0.02){
+if(stability < 40 && Math.random() < (0.01 + (40 - stability) * 0.001)){
   glitchSquares.push({
     x: Math.random()*canvas.width,
     y: Math.random()*canvas.height,
-    size: 20 + Math.random()*20,
+    size: 20 + (40 - stability) * 0.8,
     life: 0,
     triggered: false
   });
 }
+
 
     stabilityTimer = 0;
   }
@@ -521,7 +528,26 @@ if(d < g.size && !g.triggered){
 });
 
 
-  if(signal<=0){flash=1;generateLevel();}
+if(signal <= 0){
+  flash = 1;
+  lives--;
+
+  if(lives > 0){
+    // soft reset
+    signal = 1;
+    stability = 100;
+    player.x = canvas.width / 2;
+    player.y = canvas.height / 2;
+    player.vx = player.vy = 0;
+    glitchSquares = [];
+    return;
+  }
+
+  // FINAL DEATH
+  dead = true;
+  paused = true;
+  deathStartTime = performance.now();
+}
 
   if(relays.every(r=>r.active) &&
      Math.hypot(player.x-exitNode.x,player.y-exitNode.y)<exitNode.r+player.r){
@@ -542,6 +568,22 @@ const seconds = Math.floor(levelTime % 60).toString().padStart(2,"0");
 hud.textContent =
   `SIGNAL ${"▓".repeat(signal*10|0)}${"░".repeat(10-(signal*10|0))} | STAB ${stability}% | TIME ${minutes}:${seconds} | LVL ${level} | SCORE ${score}`;
 
+}
+function drawLives(){
+  ctx.save();
+  ctx.textAlign = "right";
+  ctx.textBaseline = "bottom";
+  ctx.font = "bold 20px monospace";
+  ctx.fillStyle = "#ffffff";
+
+  let x = canvas.width - 20;
+  let y = canvas.height - 20;
+
+  for(let i = 0; i < lives; i++){
+    ctx.fillText("🗲", x - i * 24, y);
+  }
+
+  ctx.restore();
 }
 
 /* ================= DRAW ================= */
@@ -652,24 +694,44 @@ ctx.shadowColor = exitNode.red ? "#ff0000" : "#ffd700";
 
 if(relays.every(r=>r.active)){
 
-  if(exitNode.red){
-    // 🔴 GLITCH EXIT (RED)
-    ctx.strokeStyle = "#ff0000";
-    ctx.shadowColor = "#ff0000";
-    ctx.shadowBlur = 30;
-  } else {
-    // 🟦🟩 NORMAL EXIT (BLUE → GREEN GRADIENT)
-    const grad = ctx.createRadialGradient(
-      exitNode.x, exitNode.y, exitNode.r * 0.2,
-      exitNode.x, exitNode.y, exitNode.r
-    );
-    grad.addColorStop(0, "#00ffd5"); // cyan center
-    grad.addColorStop(1, "#00ff6a"); // green edge
+const t = performance.now() * 0.002;
 
-    ctx.strokeStyle = grad;
-    ctx.shadowColor = "#00ffb0";
-    ctx.shadowBlur = 25;
-  }
+// ===== PULSE =====
+const pulse = 1 + Math.sin(t * 3) * 0.08;
+const r = exitNode.r * pulse;
+
+// ===== ROTATING GRADIENT =====
+const grad = ctx.createConicGradient(t, exitNode.x, exitNode.y);
+
+if(exitNode.red){
+  grad.addColorStop(0, "#ff0000");
+  grad.addColorStop(1, "#ff0000");
+} else {
+  grad.addColorStop(0, "#00ffd5");
+  grad.addColorStop(0.5, "#00ff6a");
+  grad.addColorStop(1, "#00ffd5");
+}
+
+// ===== CHROMATIC SPLIT =====
+if(Math.random() < 0.12){
+  ctx.strokeStyle = "#ff0000";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(exitNode.x + 2, exitNode.y, r, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+ctx.strokeStyle = grad;
+ctx.shadowColor = exitNode.red ? "#ff0000" : "#00ffb0";
+ctx.shadowBlur = exitNode.red ? 35 : 28;
+
+ctx.lineWidth = 3;
+ctx.beginPath();
+ctx.arc(exitNode.x, exitNode.y, r, 0, Math.PI * 2);
+ctx.stroke();
+
+ctx.shadowBlur = 0;
+
 
   ctx.beginPath();
   ctx.arc(exitNode.x, exitNode.y, exitNode.r, 0, 6.28);
@@ -719,6 +781,8 @@ ctx.restore();
     ctx.fillRect(0,0,canvas.width,canvas.height);
     flash*=0.9;
   }
+  drawLives();
+
   /* ===== PAUSE OVERLAY ===== */
 if (paused) {
 
@@ -762,6 +826,42 @@ ctx.restore();
   }
 }
 
+}
+if(dead){
+  const t = (performance.now() - deathStartTime) / 1200;
+  const a = Math.min(t, 1);
+
+  ctx.fillStyle = `rgba(0,0,0,${a})`;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.save();
+  ctx.globalAlpha = a;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  ctx.font = "bold 72px monospace";
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText("YOU DIED", canvas.width/2, canvas.height/2 - 20);
+
+  ctx.font = "italic 18px monospace";
+  ctx.fillStyle = "#aaaaaa";
+  ctx.fillText(
+    "signal lost",
+    canvas.width/2,
+    canvas.height/2 + 40
+  );
+
+  // glitch noise
+  for(let i=0;i<200;i++){
+    ctx.fillStyle = `rgba(255,255,255,${Math.random()*0.04})`;
+    ctx.fillRect(
+      Math.random()*canvas.width,
+      Math.random()*canvas.height,
+      2,2
+    );
+  }
+
+  ctx.restore();
 }
 
 /* ================= LOOP ================= */
