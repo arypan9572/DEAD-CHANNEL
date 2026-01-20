@@ -160,8 +160,6 @@ let flash = 0;
 let levelTime = 120; // seconds per level
 let paused = false;
 let pauseAlpha = 0;  // fade effect for pause screen
-player.angle = 0;     // player’s current facing direction in radians
-
 
 let stability = 100;           // 0–100
 let stabilityTimer = 0;
@@ -173,6 +171,7 @@ const player = {
   vx:0,vy:0,
   speed:0.15,
   dash:0
+  angle:0   // add here
 };
 
 /* ================= ENTITIES ================= */
@@ -196,6 +195,9 @@ bgObj.x += bgObj.vx * 0.3;
 bgObj.y += bgObj.vy * 0.3;
 bgObj.angle += 0.001;
 
+ctx.fillStyle="#04060b";
+ctx.fillRect(0,0,canvas.width,canvas.height);
+
 ctx.save();
 ctx.globalAlpha = 0.2;
 ctx.translate(bgObj.x, bgObj.y);
@@ -204,8 +206,6 @@ ctx.drawImage(bgImg, -bgObj.size/2, -bgObj.size/2, bgObj.size, bgObj.size);
 ctx.restore();
 ctx.globalAlpha = 1;
 
-  ctx.fillStyle="#04060b";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
 
   // floating anchors
   homeAnchors.forEach(a=>{
