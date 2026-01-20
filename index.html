@@ -116,6 +116,20 @@ function resize(){
 resize();
 addEventListener("resize", resize);
 
+/* ==== FLOATING BACKGROUND IMAGE ==== */
+const bgImg = new Image();
+bgImg.src = "bg.png";
+
+const bgObj = {
+  x: canvas.width / 2,
+  y: canvas.height / 2,
+  vx: (Math.random() * 0.6 + 0.2) * (Math.random() < 0.5 ? -1 : 1),
+  vy: (Math.random() * 0.6 + 0.2) * (Math.random() < 0.5 ? -1 : 1),
+  size: 40,
+  angle: 0
+};
+
+
 /* ================= INPUT ================= */
 const keys = {};
 let started = false;
@@ -165,6 +179,20 @@ for(let i=0;i<10;i++){ // floating background anchors
 }
 
 function drawHomeScreen(){
+
+  /* ==== HOME SCREEN BG ==== */
+bgObj.x += bgObj.vx * 0.3;
+bgObj.y += bgObj.vy * 0.3;
+bgObj.angle += 0.001;
+
+ctx.save();
+ctx.globalAlpha = 0.2;
+ctx.translate(bgObj.x, bgObj.y);
+ctx.rotate(bgObj.angle);
+ctx.drawImage(bgImg, -bgObj.size/2, -bgObj.size/2, bgObj.size, bgObj.size);
+ctx.restore();
+ctx.globalAlpha = 1;
+
   ctx.fillStyle="#04060b";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
@@ -299,6 +327,19 @@ if(levelTime <= 0){
   player.y += player.vy;
   player.dash--;
 
+  /* ==== FLOATING BACKGROUND MOVEMENT ==== */
+bgObj.x += bgObj.vx;
+bgObj.y += bgObj.vy;
+
+if (bgObj.x < bgObj.size || bgObj.x > canvas.width - bgObj.size) {
+  bgObj.vx *= -1;
+}
+if (bgObj.y < bgObj.size || bgObj.y > canvas.height - bgObj.size) {
+  bgObj.vy *= -1;
+}
+
+bgObj.angle += 0.002;
+
   /* Clamp to screen */
   player.x = Math.max(player.r, Math.min(canvas.width-player.r, player.x));
   player.y = Math.max(player.r, Math.min(canvas.height-player.r, player.y));
@@ -397,6 +438,26 @@ function draw(){
   ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
   ctx.fillStyle="#04060b";
   ctx.fillRect(0,0,canvas.width,canvas.height);
+  
+  /* ==== FLOATING BACKGROUND IMAGE DRAW ==== */
+if (bgImg.complete) {
+  ctx.save();
+  ctx.globalAlpha = 0.25;
+
+  ctx.translate(bgObj.x, bgObj.y);
+  ctx.rotate(bgObj.angle);
+  ctx.drawImage(
+    bgImg,
+    -bgObj.size / 2,
+    -bgObj.size / 2,
+    bgObj.size,
+    bgObj.size
+  );
+
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
 
   zones.forEach(z=>{
     ctx.strokeStyle="rgba(138,43,226,0.35)";
