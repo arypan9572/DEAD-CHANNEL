@@ -139,30 +139,27 @@ let started = false;
 // KEY PRESS HANDLING
 // ---------------------
 window.addEventListener("keydown", e => {
-  if (!started) {
-    // Start the game on first key press
-    started = true;
-    title.style.display = "none";
-    generateLevel(); // position player and level ready
-    return; // stop further key processing on first key press
-  }
+    // START GAME
+    if(!started){
+        started = true;
+        title.style.display = "none";
+        generateLevel();
+        return;
+    }
 
-  // Pause toggle with ESC
-  if (e.key === "Escape") {
-    paused = !paused;
-    return;
-  }
+    // PAUSE TOGGLE
+    if(e.key === "Escape") {
+        paused = !paused;
+        return;
+    }
 
-  // Movement keys (WASD + arrows)
-  keys[e.key.toLowerCase()] = true;
+    keys[e.key.toLowerCase()] = true;
 });
 
 window.addEventListener("keyup", e => {
-  keys[e.key.toLowerCase()] = false;
+    keys[e.key.toLowerCase()] = false;
 });
 
-
-window.addEventListener("keyup", e=>keys[e.key]=false);
 
 /* ================= STATE ================= */
 let level = 1;
@@ -180,12 +177,13 @@ let relayTimer = 0;
 
 /* ================= PLAYER ================= */
 const player = {
-  x:0,y:0,r:10,
-  vx:0,vy:0,
+  x:0, y:0, r:10,
+  vx:0, vy:0,
   speed:0.15,
-  dash:0
-  angle:0   // add here
+  dash:0,
+  angle:0
 };
+
 
 /* ================= ENTITIES ================= */
 let relays=[], zones=[], anchors=[], boosts=[], enemies=[], exitNode=null;
