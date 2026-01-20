@@ -134,20 +134,33 @@ const bgObj = {
 const keys = {};
 let started = false;
 
-window.addEventListener("keydown", e=>{
-  keys[e.key] = true;
 
-  // ESC = pause toggle (only after game starts)
-  if (e.key === "Escape" && started) {
+// ---------------------
+// KEY PRESS HANDLING
+// ---------------------
+window.addEventListener("keydown", e => {
+  if (!started) {
+    // Start the game on first key press
+    started = true;
+    title.style.display = "none";
+    generateLevel(); // position player and level ready
+    return; // stop further key processing on first key press
+  }
+
+  // Pause toggle with ESC
+  if (e.key === "Escape") {
     paused = !paused;
     return;
   }
 
-  if(!started){
-    started = true;
-    title.style.display = "none";
-  }
+  // Movement keys (WASD + arrows)
+  keys[e.key.toLowerCase()] = true;
 });
+
+window.addEventListener("keyup", e => {
+  keys[e.key.toLowerCase()] = false;
+});
+
 
 window.addEventListener("keyup", e=>keys[e.key]=false);
 
