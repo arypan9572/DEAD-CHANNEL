@@ -828,41 +828,68 @@ ctx.restore();
 
 }
 if(dead){
-  const t = (performance.now() - deathStartTime) / 1200;
-  const a = Math.min(t, 1);
+  const t = (performance.now() - deathStartTime);
+  const fade = Math.min(t / 1200, 1);
 
-  ctx.fillStyle = `rgba(0,0,0,${a})`;
+  // HARD BLACK FADE
+  ctx.fillStyle = `rgba(0,0,0,${fade * 0.9})`;
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
   ctx.save();
-  ctx.globalAlpha = a;
+  ctx.globalAlpha = fade;
+
+  // ===== JITTER / DESYNC =====
+  const jx = (Math.random()-0.5) * 8 * fade;
+  const jy = (Math.random()-0.5) * 8 * fade;
+
+ ctx.translate(
+  canvas.width/2 + jx,
+  canvas.height/2 + jy + fade * 20
+);
+
+
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  ctx.font = "bold 72px monospace";
+  // ===== MAIN TEXT (WHITE CORE) =====
+  ctx.font = "bold 80px monospace";
   ctx.fillStyle = "#ffffff";
-  ctx.fillText("YOU DIED", canvas.width/2, canvas.height/2 - 20);
+  ctx.fillText("YOU DIED", 0, -10);
 
+  // ===== CHROMATIC GHOSTS =====
+  ctx.globalAlpha = fade * 0.4;
+  ctx.fillStyle = "#ff0044";
+  ctx.fillText("YOU DIED", 4, -6);
+
+  ctx.fillStyle = "#00ffee";
+  ctx.fillText("YOU DIED", -4, -14);
+
+  ctx.globalAlpha = fade;
+
+  // ===== SUBTEXT =====
   ctx.font = "italic 18px monospace";
   ctx.fillStyle = "#aaaaaa";
-  ctx.fillText(
-    "signal lost",
-    canvas.width/2,
-    canvas.height/2 + 40
-  );
+  ctx.fillText("signal terminated", 0, 48);
 
-  // glitch noise
-  for(let i=0;i<200;i++){
-    ctx.fillStyle = `rgba(255,255,255,${Math.random()*0.04})`;
+  ctx.restore();
+
+  // ===== SCANLINE BURN =====
+  ctx.fillStyle = "rgba(255,255,255,0.04)";
+  for(let y=0; y<canvas.height; y+=3){
+    ctx.fillRect(0, y, canvas.width, 1);
+  }
+
+  // ===== STATIC NOISE =====
+  for(let i=0;i<300;i++){
+    ctx.fillStyle = `rgba(255,255,255,${Math.random()*0.05})`;
     ctx.fillRect(
       Math.random()*canvas.width,
       Math.random()*canvas.height,
       2,2
     );
   }
-
-  ctx.restore();
 }
+
 
 /* ================= LOOP ================= */
 let last=performance.now();
