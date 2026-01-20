@@ -187,6 +187,7 @@ const player = {
 
 /* ================= ENTITIES ================= */
 let relays=[], zones=[], anchors=[], boosts=[], enemies=[], exitNode=null;
+let glitchSquares = [];
 
 /* ===== HOME SCREEN ANIMATION ===== */
 const homeAnchors = [];
@@ -380,6 +381,28 @@ bgObj.angle += 0.002;
 
   /* Anchors → stability */
   let nearAnchor = false;
+  // ===== GLITCH SQUARE DRAW =====
+glitchSquares.forEach(g=>{
+  ctx.save();
+  ctx.translate(g.x, g.y);
+
+  const jitter = (Math.random()-0.5)*8;
+  ctx.rotate(jitter*0.01);
+
+  ctx.fillStyle = `rgba(255,0,0,${0.3 + Math.random()*0.4})`;
+  ctx.shadowColor = "#ff0000";
+  ctx.shadowBlur = 20;
+
+  ctx.fillRect(
+    -g.size/2 + jitter,
+    -g.size/2,
+    g.size,
+    g.size
+  );
+
+  ctx.restore();
+});
+
   anchors.forEach(a=>{
     const d = Math.hypot(player.x-a.x,player.y-a.y);
     if(d > a.r+player.r && d < 120) nearAnchor = true;
@@ -389,6 +412,17 @@ bgObj.angle += 0.002;
   if(stabilityTimer >= 0.2){
     stability += nearAnchor ? 1 : -1;
     stability = Math.max(0,Math.min(100,stability));
+    // ===== GLITCH SQUARE SPAWN (instability buff) =====
+if(stability < 40 && Math.random() < 0.02){
+  glitchSquares.push({
+    x: Math.random()*canvas.width,
+    y: Math.random()*canvas.height,
+    size: 20 + Math.random()*20,
+    life: 0,
+    triggered: false
+  });
+}
+
     stabilityTimer = 0;
   }
 
@@ -431,6 +465,55 @@ bgObj.angle += 0.002;
 
   if(danger===0) signal+=0.0015;
   signal=Math.max(0,Math.min(1,signal));
+
+  // ===== GLITCH SQUARE INTERACTION =====
+glitchSquares.forEach((g,i)=>{
+  g.life += dt;
+
+  const d = Math.hypot(player.x-g.x, player.y-g.y);
+  if(d < g.size && !g.triggered){
+    g.triggered = true;
+
+    // Restabilization reward chance
+    if(stability > 60){
+      const roll = Math.random();
+      
+      if(roll < 0.33){
+        // RED EXIT PORTAL
+        exitNode = {
+          x: g.x,
+          y: g.y,
+          r: 20,
+          red: true
+        };
+      } 
+      else if(roll < 0.66){
+        anchors.push({
+          x:g.x,
+          y:g.y,
+          r:18,
+          pulse:Math.random()*6
+        });
+      } 
+      else {
+        relays.push({
+          x:g.x,
+          y:g.y,
+          r:14,
+          active:false,
+          decay:1,
+          p:Math.random()*6
+        });
+      }
+    }
+  }
+
+  // remove old glitch
+  if(g.life > 6){
+    glitchSquares.splice(i,1);
+  }
+});
+
 
   if(signal<=0){flash=1;generateLevel();}
 
@@ -515,8 +598,8 @@ if (bgImg.complete) {
 
   anchors.forEach(a=>{
     a.pulse+=0.05;
-    ctx.strokeStyle="#ffd700";
-    ctx.shadowColor="#ffd700";
+ctx.strokeStyle = exitNode.red ? "#ff0000" : "#ffd700";
+ctx.shadowColor = exitNode.red ? "#ff0000" : "#ffd700";
     ctx.shadowBlur=12;
     ctx.beginPath();
     ctx.arc(a.x,a.y,a.r+Math.sin(a.pulse)*3,0,6.28);
