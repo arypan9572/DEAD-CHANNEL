@@ -141,13 +141,15 @@ let started = false;
 window.addEventListener("keydown", e => {
 
     // ---- Ignore input if dead ----
-    if(dead) return;
-    if(dead){
+   if(dead){
+    // Press any key to restart
     dead = false;
     paused = false;
     lives = MAX_LIVES;
     generateLevel();
+    return;
 }
+
 
 
     // START GAME
@@ -338,8 +340,34 @@ generateLevel();
 
 /* ================= UPDATE ================= */
 function update(dt){
-  if (paused) return;
   if(!started) return;
+
+let ax = 0, ay = 0;
+
+// Only accept movement if not paused and not dead
+if(!paused && !dead){
+    if(keys.w||keys.ArrowUp) ay--;
+    if(keys.s||keys.ArrowDown) ay++;
+    if(keys.a||keys.ArrowLeft) ax--;
+    if(keys.d||keys.ArrowRight) ax++;
+
+    if((keys[" "]||keys.Shift) && player.dash<=0){
+        player.vx += ax*8;
+        player.vy += ay*8;
+        player.dash = 60;
+    }
+
+    player.vx += ax*player.speed;
+    player.vy += ay*player.speed;
+}
+
+// ALWAYS update player position (so dashes still animate)
+player.x += player.vx;
+player.y += player.vy;
+player.vx *= 0.92;
+player.vy *= 0.92;
+player.dash--;
+;
   
   levelTime -= dt;
 if(levelTime <= 0){
