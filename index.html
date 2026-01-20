@@ -159,6 +159,8 @@ let shake = 0;
 let flash = 0;
 let levelTime = 120; // seconds per level
 let paused = false;
+let pauseAlpha = 0;  // fade effect for pause screen
+player.angle = 0;     // player’s current facing direction in radians
 
 
 let stability = 100;           // 0–100
@@ -448,6 +450,16 @@ function draw(){
   ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
   ctx.fillStyle="#04060b";
   ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // handle pause fade
+if(paused){
+  pauseAlpha += 0.05;
+  if(pauseAlpha>1) pauseAlpha=1;
+}else{
+  pauseAlpha -= 0.05;
+  if(pauseAlpha<0) pauseAlpha=0;
+}
+
   
   /* ==== FLOATING BACKGROUND IMAGE DRAW ==== */
 if (bgImg.complete) {
@@ -525,13 +537,30 @@ if (bgImg.complete) {
     ctx.shadowBlur=0;
   }
 
-  ctx.fillStyle="#7fffd4";
-  ctx.shadowColor="#7fffd4";
-  ctx.shadowBlur=12;
-  ctx.beginPath();
-  ctx.arc(player.x,player.y,player.r,0,6.28);
-  ctx.fill();
-  ctx.shadowBlur=0;
+ // Arrow player
+let ax=0, ay=0;
+if(keys.w||keys.ArrowUp) ay--;
+if(keys.s||keys.ArrowDown) ay++;
+if(keys.a||keys.ArrowLeft) ax--;
+if(keys.d||keys.ArrowRight) ax++;
+
+if(ax !== 0 || ay !== 0){
+  let targetAngle = Math.atan2(ay, ax);
+  let diff = targetAngle - player.angle;
+  if(diff > Math.PI) diff -= Math.PI*2;
+  if(diff < -Math.PI) diff += Math.PI*2;
+  player.angle += diff * 0.15; // turn speed, adjust 0.15 to go faster/slower
+}
+
+ctx.save();
+ctx.translate(player.x, player.y);
+ctx.rotate(player.angle);
+ctx.textAlign = "center";
+ctx.textBaseline = "middle";
+ctx.font = "30px monospace"; // arrow size
+ctx.fillStyle = "#7fffd4";
+ctx.fillText("➔", 0, 0);
+ctx.restore();
 
   ctx.restore();
 
@@ -569,7 +598,7 @@ ctx.translate(canvas.width / 2, canvas.height / 2);
 ctx.textAlign = "center";
 ctx.textBaseline = "middle";
 ctx.font = "120px monospace";
-ctx.fillStyle = "#bbb";
+ctx.fillStyle = `rgba(187,187,187,${pauseAlpha})`;
 
 for (let i = 0; i < 6; i++) {
   // tiny random offsets to make it look “handmade / crunchy”
