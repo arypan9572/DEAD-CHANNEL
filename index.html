@@ -170,22 +170,6 @@ window.addEventListener("keydown", e => {
 
 
 
-    // START GAME
-    if(!started){
-        started = true;
-        title.style.display = "none";
-        generateLevel();
-        return;
-    }
-
-    // PAUSE TOGGLE
-    if(e.key === "Escape") {
-        paused = !paused;
-        return;
-    }
-
-    keys[e.key.toLowerCase()] = true;
-});
 
 
 window.addEventListener("keyup", e => {
@@ -583,7 +567,6 @@ if(signal <= 0){
 
   // FINAL DEATH
   dead = true;
-  paused = true;
   deathStartTime = performance.now();
 }
 
@@ -861,54 +844,48 @@ if (paused && !dead) {  // <-- ONLY show pause if player is alive
     );
   }
 }
-
-
-}
+/* ===== DEATH SCREEN ===== */
 if(dead){
-  const t = (performance.now() - deathStartTime);
+  const t = performance.now() - deathStartTime;
   const fade = Math.min(t / 1200, 1);
 
-  // HARD BLACK FADE
   ctx.fillStyle = `rgba(0,0,0,${fade * 0.9})`;
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
   ctx.save();
   ctx.globalAlpha = fade;
 
-  // ===== JITTER / DESYNC =====
   const jx = (Math.random()-0.5) * 8 * fade;
   const jy = (Math.random()-0.5) * 8 * fade;
 
- ctx.translate(
-  canvas.width/2 + jx,
-  canvas.height/2 + jy + fade * 20
-);
-
+  ctx.translate(canvas.width/2 + jx, canvas.height/2 + jy + fade * 20);
 
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  // ===== MAIN TEXT (WHITE CORE) =====
   ctx.font = "bold 80px monospace";
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = "#fff";
   ctx.fillText("YOU DIED", 0, -10);
 
-  // ===== CHROMATIC GHOSTS =====
   ctx.globalAlpha = fade * 0.4;
   ctx.fillStyle = "#ff0044";
   ctx.fillText("YOU DIED", 4, -6);
-
   ctx.fillStyle = "#00ffee";
   ctx.fillText("YOU DIED", -4, -14);
 
   ctx.globalAlpha = fade;
-
-  // ===== SUBTEXT =====
   ctx.font = "italic 18px monospace";
-  ctx.fillStyle = "#aaaaaa";
-  ctx.fillText("signal terminated", 0, 48);
+  ctx.fillStyle = "#aaa";
+  ctx.fillText("press any key to reboot", 0, 48);
 
   ctx.restore();
+}
+}
+
+
+
+
+
 
   // ===== SCANLINE BURN =====
   ctx.fillStyle = "rgba(255,255,255,0.04)";
