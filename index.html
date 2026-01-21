@@ -802,7 +802,44 @@ ctx.restore();
     ctx.fillRect(0,0,canvas.width,canvas.height);
     flash*=0.9;
   }
-  drawLives();
+drawLives();
+
+/* ===== DEATH SCREEN ===== */
+if(dead){
+  const t = performance.now() - deathStartTime;
+  const fade = Math.min(t / 1200, 1);
+
+  ctx.fillStyle = `rgba(0,0,0,${fade * 0.9})`;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.save();
+  ctx.globalAlpha = fade;
+
+  const jx = (Math.random()-0.5) * 8 * fade;
+  const jy = (Math.random()-0.5) * 8 * fade;
+
+  ctx.translate(canvas.width/2 + jx, canvas.height/2 + jy + fade * 20);
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  ctx.font = "bold 80px monospace";
+  ctx.fillStyle = "#fff";
+  ctx.fillText("YOU DIED", 0, -10);
+
+  ctx.globalAlpha = fade * 0.4;
+  ctx.fillStyle = "#ff0044";
+  ctx.fillText("YOU DIED", 4, -6);
+  ctx.fillStyle = "#00ffee";
+  ctx.fillText("YOU DIED", -4, -14);
+
+  ctx.globalAlpha = fade;
+  ctx.font = "italic 18px monospace";
+  ctx.fillStyle = "#aaa";
+  ctx.fillText("press any key to reboot", 0, 48);
+
+  ctx.restore();
+}
 
   /* ===== PAUSE OVERLAY ===== */
 /* ===== PAUSE OVERLAY ===== */
@@ -844,42 +881,6 @@ if (paused && !dead) {  // <-- ONLY show pause if player is alive
     );
   }
 
-/* ===== DEATH SCREEN ===== */
-if(dead){
-  const t = performance.now() - deathStartTime;
-  const fade = Math.min(t / 1200, 1);
-
-  ctx.fillStyle = `rgba(0,0,0,${fade * 0.9})`;
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-
-  ctx.save();
-  ctx.globalAlpha = fade;
-
-  const jx = (Math.random()-0.5) * 8 * fade;
-  const jy = (Math.random()-0.5) * 8 * fade;
-
-  ctx.translate(canvas.width/2 + jx, canvas.height/2 + jy + fade * 20);
-
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-
-  ctx.font = "bold 80px monospace";
-  ctx.fillStyle = "#fff";
-  ctx.fillText("YOU DIED", 0, -10);
-
-  ctx.globalAlpha = fade * 0.4;
-  ctx.fillStyle = "#ff0044";
-  ctx.fillText("YOU DIED", 4, -6);
-  ctx.fillStyle = "#00ffee";
-  ctx.fillText("YOU DIED", -4, -14);
-
-  ctx.globalAlpha = fade;
-  ctx.font = "italic 18px monospace";
-  ctx.fillStyle = "#aaa";
-  ctx.fillText("press any key to reboot", 0, 48);
-
-  ctx.restore();
-}
 }
 
 
